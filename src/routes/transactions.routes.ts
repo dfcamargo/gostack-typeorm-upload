@@ -46,14 +46,25 @@ transactionsRouter.delete('/:id', async (request, response) => {
 
 transactionsRouter.post(
   '/import',
-  upload.single('file'),
+  upload.array('files'),
   async (request, response) => {
-    const { filename } = request.file;
+    const allTransactions = (request.files as Express.Multer.File[]).map(
+      async (file: Express.Multer.File) => {
+        const importTransactions = new ImportTransactionsService();
+        const transactions = await importTransactions.execute(file.filename);
 
-    const importTransactions = new ImportTransactionsService();
-    const transactions = await importTransactions.execute(filename);
+        return transactions;
+      },
+    );
 
-    return response.json(transactions);
+    const transactions = await Promise.all(allTransactions);
+
+    return response.json(
+      transactions.reduce(
+        (accumulate, currentValue) => accumulate.concat(currentValue),
+        [],
+      ),
+    );
   },
 );
 
